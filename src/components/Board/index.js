@@ -1,15 +1,43 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import styles from "./index.module.css";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { MENU_ITEMS } from "@/constants";
+import { actionItemClick } from "@/store/reducers/menuSlice";
 const Board = () =>{
 
-    const activeMenuItem = useSelector((state) => state.menu.activeMenuItem);
+    const {activeMenuItem, actionMenuItem} = useSelector((state) => state.menu);
+    console.log(activeMenuItem)
     const {color, size} = useSelector((state) => state.toolbox[activeMenuItem])
     const canvasRef = useRef();
     const shouldDraw = useRef(false)
+    const drawHistory = useRef([])
+    const historyPointer = useRef(0)
+    const dispatch = useDispatch();
 
     useEffect(()=>{
         if (!canvasRef.current) return
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d')
+
+        if (actionMenuItem === MENU_ITEMS.DOWNLOAD) {
+            console.log(actionMenuItem)
+            const URL = canvas.toDataURL()
+            const anchor = document.createElement('a')
+            anchor.href = URL
+            anchor.download = 'sketch.jpg'
+            anchor.click()
+        }else  if (actionMenuItem === MENU_ITEMS.UNDO || actionMenuItem === MENU_ITEMS.REDO) {
+            if(historyPointer.current > 0 && actionMenuItem === MENU_ITEMS.UNDO) historyPointer.current -= 1
+            if(historyPointer.current < drawHistory.current.length - 1 && actionMenuItem === MENU_ITEMS.REDO) historyPointer.current += 1
+            const imageData = drawHistory.current[historyPointer.current]
+            console.log(imageData)
+            context.putImageData(imageData, 0, 0)
+        }
+        dispatch(actionItemClick(null))
+    },[actionMenuItem, dispatch])
+
+    useEffect(()=>{
+        if (!canvasRef.current) return;
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d')
 
@@ -25,7 +53,7 @@ const Board = () =>{
     useLayoutEffect(()=>{
         if (!canvasRef.current) return;
         const canvas = canvasRef.current;
-        const context = canvas.getContext('2d')
+        const context = canvas.getContext('2d');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -48,6 +76,9 @@ const Board = () =>{
         }
         const handleMouseUp = (e) =>{
             shouldDraw.current = false;
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+            drawHistory.current.push(imageData)
+            historyPointer.current = drawHistory.current.length - 1
         }
 
         canvas.addEventListener('mousedown', handleMouseDown)
